@@ -1,5 +1,5 @@
 # EC2 tools
-## Version 0.0.1
+## Version 0.1.0
 
 Paul Hansen 
 February 1, 2020
