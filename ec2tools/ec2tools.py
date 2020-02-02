@@ -275,6 +275,51 @@ def get_quota(quota_name=None, quota_code=None, quota_field=None):
     return result
 
 
+def get_instance_types(field=None):
+    """
+    Get list of available EC2 instance types.
+    
+    Args:
+        field (str): field to return e.g. "InstanceType"
+    Returns:
+        dict
+    """
+    ec2 = boto3.client("ec2")
+    result = ec2.describe_instance_types()["InstanceTypes"]
+
+    if field is not None:
+        result = get(result, "[*].InstanceType")
+
+    return result
+
+
+def get_instance_type_quota(instance_type, quota_field=None):
+    """
+    Get on-demand instance quota for given instance type.
+
+    Args:
+        instance_type (str): EC2 instance type,  e.g. "t1.micro"
+    """
+    ec2 = boto3.client("ec2")
+
+    if instance_type[0] == "f":
+        # there may not be any FPGA instances in my availability zone...?
+        quota_name = "Running On-Demand F instances"
+    elif instance_type[0] == "g":
+        quota_name = "Running On-Demand G instances"
+    elif instance_type[0:3] == "inf":
+        quota_name = "Running On-Demand Inf instances"
+    elif instance_type[0] == "p":
+        quota_name = "Running On-Demand P instances"
+    elif instance_type[0] == "x":
+        quota_name = "Running On-Demand X instances"
+    else:
+        quota_name = "Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances"
+
+    result = get_quota(quota_name, quota_field=quota_field)
+    return result
+
+
 def update_ssh_config(config_path, instances, pem_dir_path, new_config_path=None):
     """
     Update SSH config file to include the given AWS EC2 instances.
