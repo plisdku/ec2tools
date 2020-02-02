@@ -1,5 +1,7 @@
 from setuptools import setup
 
+install_requires = [boto3, jsonpath_rw, sshconf]
+
 version = "0.0.1"
 
 setup(name="ec2tools",
