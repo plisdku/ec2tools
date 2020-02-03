@@ -102,7 +102,11 @@ def get_instance_ids(name=None):
     ec2 = boto3.client("ec2")
 
     if name:
-        tags_dict = ec2.describe_tags(Filters=[{"Name": "value", "Values": [name]}],)
+        filters = [
+            {"Name": "value", "Values": ["plisdku.*"]},
+            {"Name": "resource-type", "Values": ["instance"]},
+        ]
+        tags_dict = ec2.describe_tags(Filters=filters)
         instance_ids = get(tags_dict, "Tags.[*].ResourceId")
     else:
         instances_dict = ec2.describe_instances()
@@ -127,22 +131,25 @@ def get_instances(name=None):
     return instances
 
 
-USERNAME_DICT = {"^Amazon Linux.*": "ec2-user"}
+USERNAME_DICT = {".*Amazon Linux.*": "ec2-user"}
 
 
-def get_instance_username(image_description):
+def get_image_username(image):
     """
     Get Linux username for given AMI type.
     
     Args:
-        image_description (str): 
+        image (boto3.resources.factory.ec2.Image): image to query
+    Returns:
+        str: username
     """
-    if not isinstance(image_description, str):
-        raise TypeError(f"image_description ({image_description}) should be str)")
 
+    # 1. Try to match image name
+    # 2. Try to match image description
     for (pattern, username) in USERNAME_DICT.items():
-        result = re.match(pattern, image_description)
-        if result:
+        if re.match(pattern, image.name):
+            return username
+        if re.match(pattern, image.description):
             return username
     return None
 
@@ -192,7 +199,7 @@ def get_instance_ssh_config_items(instance, pem_dir_path):
     Returns:
         dict: Host, Hostname, User and IdentityFile
     """
-    username = get_instance_username(instance.image.description)
+    username = get_image_username(instance.image)
     name = get_instance_name(instance)
 
     identity_file = os.path.join(pem_dir_path, f"{instance.key_name}.pem")
@@ -430,12 +437,14 @@ def update_ssh_config(config_path, instances, pem_dir_path, new_config_path=None
         items = get_instance_ssh_config_items(instance, pem_dir_path)
         if items["Host"] in c.hosts():
             c.remove(items["Host"])
-        c.add(
-            items["Host"],
-            Hostname=items["Hostname"],
-            User=items["User"],
-            IdentityFile=items["IdentityFile"],
-        )
+
+        if instance.state["Name"] in ["running", "pending"]:
+            c.add(
+                items["Host"],
+                Hostname=items["Hostname"],
+                User=items["User"],
+                IdentityFile=items["IdentityFile"],
+            )
 
     c.write(new_config_path)
 
