@@ -1,6 +1,6 @@
 import boto3
 import boto3.ec2
-from jsonpath_rw import jsonpath, parse
+from jsonpath_rw_ext import parse
 import sshconf
 import os
 import re
@@ -318,6 +318,84 @@ def get_instance_type_quota(instance_type, quota_field=None):
 
     result = get_quota(quota_name, quota_field=quota_field)
     return result
+
+
+def get_key_pairs(field=None):
+    """
+    Get key pairs.
+    
+    Args:
+        field (str,optional): name of one field to read e.g. "KeyName"
+    Returns:
+        json object
+    """
+    ec2 = boto3.client("ec2")
+    result = ec2.describe_key_pairs()["KeyPairs"]
+    if field is not None:
+        result = get(result, f"[*].{field}")
+    return result
+
+
+def get_security_groups(field=None):
+    """
+    Get security groups.
+    
+    Args:
+        field (str, optional): name of single field to return e.g. "GroupName", "GroupId"
+    Returns:
+        json object
+    """
+    ec2 = boto3.client("ec2")
+    result = ec2.describe_security_groups()["SecurityGroups"]
+    if field is not None:
+        result = get(result, f"[*].{field}")
+    return result
+
+
+def launch_instance(
+    image_id,
+    instance_type,
+    key_name,
+    security_group=None,
+    instance_name=None,
+    dry_run=False,
+):
+    """
+    Launch a new instance.
+    
+    Args:
+        image_id (str): AMI image id e.g. "ami-03caa3f860895f82e"
+        instance_type (str): instance type e.g. "t1.micro"
+        key_name (str): name of your key pair e.g. "key_sg_uswest1"
+        security_group (str, optional): name of security group e.g. "temp_SG_uswest1"
+        instance_name (str, optional): name of instance (alias for SSH) e.g. "my.t1.micro"
+    Returns:
+        boto3.resources.factory.ec2.Instance: the new instance
+    """
+
+    kwargs = {
+        "ImageId": image_id,
+        "InstanceType": instance_type,
+        "KeyName": key_name,
+        "MinCount": 1,
+        "MaxCount": 1,
+        "DryRun": dry_run,
+    }
+    if security_group is not None:
+        kwargs["SecurityGroups"] = [security_group]
+    if instance_name is not None:
+        tags = [{"Key": "Name", "Value": instance_name}]
+        tag_spec = [{"ResourceType": "instance", "Tags": tags}]
+        kwargs["TagSpecifications"] = tag_spec
+
+    ec2 = boto3.client("ec2")
+    reservations = ec2.run_instances(**kwargs)
+    instance_ids = get(reservations, "Instances[*].InstanceId")
+
+    ec2res = boto3.resource("ec2")
+    instance = ec2res.Instance(instance_ids[0])
+
+    return instance
 
 
 def update_ssh_config(config_path, instances, pem_dir_path, new_config_path=None):

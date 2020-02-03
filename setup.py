@@ -1,6 +1,6 @@
 from setuptools import setup
 
-install_requires = ["boto3", "jsonpath_rw", "sshconf"]
+install_requires = ["boto3", "jsonpath_rw_ext", "sshconf"]
 
 version = "0.0.1"
 
