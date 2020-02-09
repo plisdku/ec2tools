@@ -34,3 +34,16 @@ I am using a setuptools entry point to implement the command line interface:
 
 https://python-packaging.readthedocs.io/en/latest/command-line-scripts.html
 
+The command line tool is called `ec2` and when updated you somehow have to re-run `pip` even for local installation.
+
+## Pre-commit
+
+I ran `pre-commit install` and copied in `.pre-commit-config.yaml` and made some modifications.
+
+To manually activate the pre-commit hook for the pre-commit stage, run
+```
+pre-commit run --all-files
+```
+
+
+

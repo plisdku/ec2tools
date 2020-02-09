@@ -1,0 +1,24 @@
+# The repository mapping tells pre-commit where to get the code for the hook from.
+repos:
+    # Copied from pre-commit.com example.
+-   repo: https://github.com/psf/black
+    rev: 19.3b0
+    hooks:
+    -   id: black
+# -   repo: local
+#     hooks:
+#     # Copied from blog.jerrycodes.com/pre-commit-is-awesome
+#     -   id: tests
+#         name: run tests
+#         entry: pytest -v
+#         pass_filenames: False
+#         language: system
+#         types: [python]
+#         stages: [push]
+#         always_run: True
+#     -   id: echo
+#         name: echo args
+#         language: system
+#         entry: echo
+#         verbose: True
+#         stages: [manual]
