@@ -11,4 +11,7 @@ setup(name="ec2tools",
     author_email="paul.c.hansen@gmail.com",
     packages=["ec2tools"],
     install_requires= install_requires,
-    python_requires=">=3")
+    python_requires=">=3",
+    entry_points = {
+        'console_scripts': ["ec2=ec2tools.commandline:main"]
+    })

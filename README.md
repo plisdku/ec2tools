@@ -28,4 +28,9 @@ instances[1].start()
 ec2tools.wait_for_state(instances[0], "running")
 ```
 
+## Command line
+
+I am using a setuptools entry point to implement the command line interface:
+
+https://python-packaging.readthedocs.io/en/latest/command-line-scripts.html
 
