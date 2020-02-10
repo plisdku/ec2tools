@@ -1,0 +1,38 @@
+# Example EC2 config yaml
+
+# This file is used for default values and for menus of options.
+
+---
+
+key_pairs:
+  - plisdku-admin-aws-key-pair-us-west-1
+
+security_groups:
+  - temp_SG_uswest1
+  - admin_SG_uswest1
+
+instance_types:
+  - t1.micro
+  - g4dn.xlarge
+
+ssh_config_path:
+  - ~/.ssh/config
+
+ssh_key_path:
+  - ~/.ssh/amazon_aws
+
+instance_templates:
+  - name: t1.micro
+  - 
+
+
+
+...
+
+
+    image_id,
+    instance_type,
+    key_name,
+    security_group=None,
+    instance_name=None,
+    dry_run=False,
