@@ -22,52 +22,6 @@ def get(obj, expr):
     return [match.value for match in jsonpath_expr.find(obj)]
 
 
-def create_filters(**kwargs):
-    """
-    Quick filter creation for describe-images, describe-instances, etc.
-    
-    Args:
-        **kwargs: key-value 
-    
-    EC2 filters are key-values pairs where the key is lower case and hyphen-separated,
-    and the values are a list of strings.  This function will
-    1. convert underscore-separated Python kwargs to hyphen-separated strings for EC2,
-      1b. any key of the form "tag_*" other than "tag_key" will be converted into the special
-          filter string "tag:*".  If the key does not start with "tag_" don't worry about this...
-    2. if a single string value is given, creates a one-element list containing the string
-    3. creates a suitable JSON-like dict for boto3 filters.
-    
-    For instance:
-    
-        >>> create_filters(resource_type="instance")
-        [{'Name': 'resource-type', 'Values': ['instance']}]
-        
-        >>> create_filters(tag_Name="instance")
-        [{'Name': 'tag:Name', 'Values': ['instance']}]
-    
-    EC2 commands each have their own valid filter names!  Check on the command line, e.g.
-    
-        >>> aws2 ec2 describe-instances help
-        
-        >>> aws2 ec2 describe-images help
-    
-    and so on to see lists of valid filter names.
-    """
-    filters = []
-    for key, value in kwargs.items():
-        if key.startswith("tag_") and key != "tag_key":
-            key = key.replace("_", ":")
-        else:
-            key = key.replace("_", "-")
-
-        if not isinstance(value, list):
-            value = [value]
-
-        filters.append({"Name": key, "Values": value})
-
-    return filters
-
-
 INSTANCE_ATTRIBUTES = [
     "ami_launch_index",
     "architecture",
