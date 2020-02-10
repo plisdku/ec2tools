@@ -93,3 +93,47 @@ def get_instances(instance_ids=None, **filters):
         )
     ]
     return instances
+
+
+def describe_key_pairs(key_pair_ids=None, filters=None, path="$.[*]"):
+    """
+    Simpler access to describe_key_pairs().
+    
+    Args:
+        key_pair_ids (str|list): ids to query
+        filters (dict): query filters
+        path (str): JSONpath query
+    Returns:
+        object: JSON-like
+    """
+    kwargs = {}
+
+    if key_pair_ids:
+        if not hasattr(instance_ids, "__len__"):
+            instance_ids = [instance_ids]
+        kwargs["KeyPairIds"] = key_pair_ids
+
+    if filters:
+        kwargs["Filters"] = filters
+
+    v = ec2.describe_key_pairs(**kwargs)
+    return get(v["KeyPairs"], path)
+
+
+def get_key_pairs(key_pair_ids=None, **filters):
+    """
+    Get list of key pairs.
+    
+    Args:
+        key_pair_ids (str|list): ids to query
+        filters (dict): query filters
+    Returns:
+        list: boto3.resources.factory.ec2.KeyPair objects
+    """
+    key_pairs = [
+        ec2_res.KeyPair(v)
+        for v in describe_key_pairs(
+            key_pair_ids, create_filters(**filters), path="[*].KeyPairId"
+        )
+    ]
+    return key_pairs
