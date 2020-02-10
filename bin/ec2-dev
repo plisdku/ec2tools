@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+
+import ec2tools.commandline
+ec2tools.commandline.main()

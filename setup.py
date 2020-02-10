@@ -14,4 +14,5 @@ setup(
     install_requires=install_requires,
     python_requires=">=3",
     entry_points={"console_scripts": ["ec2=ec2tools.commandline:main"]},
+    # scripts=["bin/ec2-dev"]
 )

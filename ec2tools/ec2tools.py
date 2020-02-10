@@ -22,6 +22,52 @@ def get(obj, expr):
     return [match.value for match in jsonpath_expr.find(obj)]
 
 
+def create_filters(**kwargs):
+    """
+    Quick filter creation for describe-images, describe-instances, etc.
+    
+    Args:
+        **kwargs: key-value 
+    
+    EC2 filters are key-values pairs where the key is lower case and hyphen-separated,
+    and the values are a list of strings.  This function will
+    1. convert underscore-separated Python kwargs to hyphen-separated strings for EC2,
+      1b. any key of the form "tag_*" other than "tag_key" will be converted into the special
+          filter string "tag:*".  If the key does not start with "tag_" don't worry about this...
+    2. if a single string value is given, creates a one-element list containing the string
+    3. creates a suitable JSON-like dict for boto3 filters.
+    
+    For instance:
+    
+        >>> create_filters(resource_type="instance")
+        [{'Name': 'resource-type', 'Values': ['instance']}]
+        
+        >>> create_filters(tag_Name="instance")
+        [{'Name': 'tag:Name', 'Values': ['instance']}]
+    
+    EC2 commands each have their own valid filter names!  Check on the command line, e.g.
+    
+        >>> aws2 ec2 describe-instances help
+        
+        >>> aws2 ec2 describe-images help
+    
+    and so on to see lists of valid filter names.
+    """
+    filters = []
+    for key, value in kwargs.items():
+        if key.startswith("tag_") and key != "tag_key":
+            key = key.replace("_", ":")
+        else:
+            key = key.replace("_", "-")
+
+        if not isinstance(value, list):
+            value = [value]
+
+        filters.append({"Name": key, "Values": value})
+
+    return filters
+
+
 INSTANCE_ATTRIBUTES = [
     "ami_launch_index",
     "architecture",
@@ -85,9 +131,21 @@ def get_instance_attributes(instance):
         dict: attributes
     """
     instance_attributes = dict(
-        [(key, instance.__getattribute__(key)) for key in INSTANCE_ATTRIBUTES]
+        [(key, getattr(instance, key, None)) for key in INSTANCE_ATTRIBUTES]
     )
     return instance_attributes
+
+
+def create_tag_spec(resource_type="instance", **kwargs):
+    """
+    Make a tag spec for EC2 stuff.
+    """
+    tags = []
+    for (key, value) in kwargs.items():
+        tags.append({"Key": key, "Value": value})
+
+    tag_spec = [{"ResourceType": "instance", "Tags": tags}]
+    return tag_spec
 
 
 def get_instance_ids(name=None):
@@ -95,7 +153,7 @@ def get_instance_ids(name=None):
     Get a list of instance IDs, optionally matching a pattern.
     
     Args:
-        name (str, optional): regexp pattern for instance name
+        name (str, optional): regexp pattern for instance name, e.g. "plisdku.*"
     Returns:
         list: matching instance IDs
     """
@@ -103,7 +161,7 @@ def get_instance_ids(name=None):
 
     if name:
         filters = [
-            {"Name": "value", "Values": ["plisdku.*"]},
+            {"Name": "value", "Values": [name]},
             {"Name": "resource-type", "Values": ["instance"]},
         ]
         tags_dict = ec2.describe_tags(Filters=filters)
@@ -114,7 +172,7 @@ def get_instance_ids(name=None):
     return instance_ids
 
 
-def get_instances(name=None):
+def get_instances(name=None, instance_id=None):
     """
     Get a list of instances, optionally matching a pattern.
     
@@ -125,9 +183,20 @@ def get_instances(name=None):
     """
     ec2_resource = boto3.resource("ec2")
 
-    instance_ids = get_instance_ids(name=name)
+    instances = []
 
-    instances = [ec2_resource.Instance(instance_id) for instance_id in instance_ids]
+    if name is not None:
+        instance_ids = get_instance_ids(name=name)
+        instances = [ec2_resource.Instance(instance_id) for instance_id in instance_ids]
+    elif instance_id is not None:
+        instance_ids = get_instance_ids()
+        if instance_id not in instance_ids:
+            raise Exception(f"Instance id {instance_id} is not a valid instance.")
+        instances = [ec2_resource.Instance(instance_id)]
+    else:
+        instance_ids = get_instance_ids()
+        instances = [ec2_resource.Instance(instance_id) for instance_id in instance_ids]
+
     return instances
 
 
