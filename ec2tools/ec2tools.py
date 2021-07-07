@@ -10,11 +10,11 @@ import time
 
 def get(obj, expr):
     """
-    Quick jsonpath query.
+    Query a dict or list (JSON-like object) with a JSONpath expression.
     
     Args:
-        obj (object): JSON object e.g. dict or list
-        expr (str): JSONpath expression
+        obj (object): JSON-like object e.g. dict or list
+        expr (str): JSONpath expression, e.g. "Tags.[*].ResourceId"
     Returns:
         list: matches
     """
@@ -73,7 +73,7 @@ INSTANCE_ATTRIBUTES = [
     "vpc_id",
 ]
 
-
+# GOOD
 def get_instance_attributes(instance):
     """
     Get attributes of instance as a dict.
@@ -91,7 +91,7 @@ def get_instance_attributes(instance):
     return instance_attributes
 
 
-# UNUSED
+# UNUSED.  Maybe could be used in launch_instance.  Baleet?
 def create_tag_spec(resource_type="instance", **kwargs):
     """
     Make a tag spec for EC2 stuff.
@@ -104,6 +104,8 @@ def create_tag_spec(resource_type="instance", **kwargs):
     return tag_spec
 
 
+# Redundant with new describe_instances.  But it's economical.
+# Could rewrite: describe_instances(path="$..InstanceId")
 def get_instance_ids(name=None):
     """
     Get a list of instance IDs, optionally matching a pattern.
@@ -128,6 +130,7 @@ def get_instance_ids(name=None):
     return instance_ids
 
 
+# Obsolete
 def get_instances(name=None, instance_id=None):
     """
     Get a list of instances, optionally matching a pattern.
@@ -157,9 +160,10 @@ def get_instances(name=None, instance_id=None):
     return instances
 
 
+# Can I get this from the YAML?  Maybe should hardcode.
 USERNAME_DICT = {".*Amazon Linux.*": "ec2-user"}
 
-
+# Good
 def get_image_username(image):
     """
     Get Linux username for given AMI type.
@@ -180,6 +184,7 @@ def get_image_username(image):
     return None
 
 
+# sorta redundant with describe_instances(path="$..Tags").
 def get_instance_tags(instance, key):
     """
     Get values for all instance tags with the given key.
@@ -199,6 +204,9 @@ def get_instance_tags(instance, key):
     return tags
 
 
+# sorta redundant with describe_instances(path="$..Tags[?(@.Key == 'Name')].Value")
+# and also with ec2tools.get(instance.tags, "$[?(@.Key=='Name')].Value") if the
+# instance has been gotten
 def get_instance_name(instance):
     """
     Get name of instance.  Returns empty string if no name is given.
@@ -215,9 +223,20 @@ def get_instance_name(instance):
         return ""
 
 
+# Good!
 def get_instance_ssh_config_items(instance, pem_dir_path):
     """
     Create dict of fields to put in SSH config file.
+
+    An SSH config file will have entries of the following form:
+
+        Host some_host
+          User ubuntu
+          Hostname ec2-13-56-76-202.us-west-1.compute.amazonaws.com
+          IdentityFile /Users/some_user/.ssh/amazon_aws/whatever-admin-aws-key-pair-us-west-1.pem
+
+    One might want to programmatically generate such entries for a given AWS instance.
+    This function creates a dict with the Host, User, Hostname and IdentityFile keys.
     
     Args:
         instance (boto3.resources.factory.ec2.Instance): instance to insert in config
@@ -246,12 +265,18 @@ def get_instance_ssh_config_items(instance, pem_dir_path):
     return out_dict
 
 
+# Good
 def get_quota_codes():
     """
-    Get all EC2 quota codes.
+    Get all EC2 quota codes and return as a dict.
     
     Returns:
         dict: QuotaName -> QuotaCode
+
+    Example:
+        >>> ec2tools.ec2tools.get_quota_codes()
+        {'All F Spot Instance Requests': 'L-88CF9481',
+         'New Reserved Instances per month': 'L-D0B7243C'}
     """
     quotas = boto3.client("service-quotas")
     result = quotas.list_service_quotas(ServiceCode="ec2")
@@ -261,6 +286,8 @@ def get_quota_codes():
     return quota_code_dict
 
 
+# Pretty good.  The quota_field arg is out of step with the
+# functions in wrapper.py.  But, so what?
 def get_quota(quota_name=None, quota_code=None, quota_field=None):
     """
     Get quota dict for a given EC2 service.
@@ -308,6 +335,7 @@ def get_quota(quota_name=None, quota_code=None, quota_field=None):
     return result
 
 
+# Rewrite a little for wrapper.py.
 def get_instance_types(field=None):
     """
     Get list of available EC2 instance types.
@@ -326,6 +354,7 @@ def get_instance_types(field=None):
     return result
 
 
+# Rewrite a little for wrapper.py
 def get_instance_type_quota(instance_type, quota_field=None):
     """
     Get on-demand instance quota for given instance type.
@@ -353,6 +382,7 @@ def get_instance_type_quota(instance_type, quota_field=None):
     return result
 
 
+# REDUNDANT, BALEET PLZ
 def get_key_pairs(field=None):
     """
     Get key pairs.
@@ -369,6 +399,7 @@ def get_key_pairs(field=None):
     return result
 
 
+# REDUNDANT, BALEET
 def get_security_groups(field=None):
     """
     Get security groups.
@@ -385,6 +416,7 @@ def get_security_groups(field=None):
     return result
 
 
+# Rewrite a little for wrapper.py
 def launch_instance(
     image_id,
     instance_type,
@@ -431,6 +463,7 @@ def launch_instance(
     return instance
 
 
+# Good!
 def update_ssh_config(config_path, instances, pem_dir_path, new_config_path=None):
     """
     Update SSH config file to include the given AWS EC2 instances.
@@ -475,6 +508,7 @@ def update_ssh_config(config_path, instances, pem_dir_path, new_config_path=None
     c.write(new_config_path)
 
 
+# Good!
 def wait_for_state(instance, desired_state, timeout=300, verbose=True):
     """
     Wait until one or several instances are in the desired state.

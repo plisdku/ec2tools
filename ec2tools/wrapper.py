@@ -1,13 +1,24 @@
+"""
+User-friendly wrappers to boto3.client("ec2").describe_* functions:
+    boto3.client("ec2").describe_volumes
+    boto3.client("ec2").describe_instances
+    boto3.client("ec2").describe_key_pairs
+    boto3.client("ec2").describe_security_groups
+    boto3.client("ec2").describe_instance_types
+    boto3.client("ec2").describe_images
+"""
+
 import boto3
 from .ec2tools import get
 
-ec2 = boto3.client("ec2")
-ec2_res = boto3.resource("ec2")
+CLIENT_ec2 = boto3.client("ec2")
+RESOURCE_ec2 = boto3.resource("ec2")
 
 
 def _translate_filters(**kw_filters):
     """
-    Translate dict keys to valid EC2 key names.
+    Convert kwargs with underscore-separated keys to dict with hyphen-separated keys
+    like EC2 filters.
 
     EC2 filters are key-values pairs where the key is lower case and hyphen-separated,
     and the values are a list of strings.  This function will
@@ -57,6 +68,13 @@ def _translate_filters(**kw_filters):
 def _create_ec2_filters(filters):
     """
     Quick filter creation for describe-images, describe-instances, etc.
+
+    To create an EC2 Filters object such as
+        [{'Name': 'resource-type', 'Values': ['instance']}]
+    call _create_ec2_filters with a dict:
+        _create_ec2_filters({'resource-type': 'instance'})
+    or
+        _create_ec2_filters({'resource-type': ['instance']})
 
     A valid EC2 Filters object is a JSON-like list of individual filters
     such as
@@ -138,13 +156,13 @@ def _describe_kwargs(id_field_name, ids=None, filters=None, kw_filters=None):
     """
     Get kwargs for an ec2.describe_* function.
     
-    The filters dict will be passed to create_filters.  Check the docstring for create_filters.
+    The filters dict will be passed to _create_ec2_filters.  Check the docstring for _create_ec2_filters.
     
     Args:
         id_field_name (str): something plural like "VolumeIds"
         ids (None|str|list): list of ids (volume ids, instance ids)
         filters (dict): valid filters in EC2 form, e.g. {"egress.ip-permission.cidr":"*"}
-        kw_filters (dict): valid filters in create_filters form, e.g. {"size":"8"}
+        kw_filters (dict): valid filters in _create_ec2_filters form, e.g. {"size":"8"}
     Returns:
         dict: kwargs for some ec2.describe_ function.
     """
@@ -167,29 +185,37 @@ def _describe_kwargs(id_field_name, ids=None, filters=None, kw_filters=None):
 
 def describe_volumes(volume_ids=None, path="$[*]", filters=None, **kw_filters):
     """
-    Simpler access to describe_volumes().
+    Simpler access to describe_volumes().  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-volumes help
+
+    and look at the --filters option.
     
     Args:
         volume_ids (str|list): ids to query
         path (str): JSONpath query
         filters (dict): EC2 filters, e.g. {"attachment.delete-on-termination":True}
-        kw_filters (dict): valid filters in create_filters form, e.g. size="8"
+        kw_filters (dict): valid filters in _create_ec2_filters form, e.g. size="8"
     Returns:
         object: JSON-like
     """
     kwargs = _describe_kwargs("VolumeIds", volume_ids, filters, kw_filters)
-    v = ec2.describe_volumes(**kwargs)
+    v = CLIENT_ec2.describe_volumes(**kwargs)
     return get(v["Volumes"], path)
 
 
 def get_volumes(volume_ids=None, filters=None, **kw_filters):
     """
-    Get list of volumes.
+    Get list of volumes.  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-volumes help
+
+    and look at the --filters option.
     
     Args:
         volume_ids (str|list): ids to query
         filters (dict): EC2 filters, e.g. {"attachment.delete-on-termination":True}
-        kw_filters (dict): filters in create_filters form, e.g. size="8"
+        kw_filters (dict): filters in _create_ec2_filters form, e.g. size="8"
     Returns:
         list: boto3.resources.factory.ec2.Volume objects
 
@@ -199,7 +225,7 @@ def get_volumes(volume_ids=None, filters=None, **kw_filters):
         >>> get_volumes(volume_id="vol*") # filter volume IDs with wildcard
     """
     volumes = [
-        ec2_res.Volume(v)
+        RESOURCE_ec2.Volume(v)
         for v in describe_volumes(volume_ids, "[*].VolumeId", filters, **kw_filters)
     ]
     return volumes
@@ -207,39 +233,62 @@ def get_volumes(volume_ids=None, filters=None, **kw_filters):
 
 def describe_instances(instance_ids=None, path="$.[*]", filters=None, **kw_filters):
     """
-    Simpler access to describe_instances().
+    Simpler access to describe_instances().  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-instances help
+
+    and look at the --filters option.
     
     Args:
         instance_ids (str|list): ids to query
         path (str): JSONpath query
         filters (dict):  EC2 filters, e.g. {"block-device-mapping.device-name":"/dev/xvda"}
-        **kw_filters: filters in create_filters form, e.g. instance_type="t2.micro"
+        **kw_filters: filters in _create_ec2_filters form, e.g. instance_type="t2.micro"
     Returns:
         object: JSON-like
+    
+    Examples:
+        # Get IDs for instances with name matching the "myInstance*" pattern
+        >>> describe_instances(path="[*].Instances[*].InstanceId", tag_Name="myInstance*")
+
+        # Get full descriptions for instances with name equal to "ServerName"
+        >>> describe_instances(tag_Name="Server Name")
+
+        # Get only the InstanceId fields, with a more economical query path.
+        >>> describe_instances(path="$..InstanceId")
     """
     kwargs = _describe_kwargs("InstanceIds", instance_ids, filters, kw_filters)
-    v = ec2.describe_instances(**kwargs)
+    v = CLIENT_ec2.describe_instances(**kwargs)
     return get(v["Reservations"], path)
 
 
 def get_instances(instance_ids=None, filters=None, **kw_filters):
     """
-    Get list of instances.
+    Get list of instances.  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-instances help
+
+    and look at the --filters option.
     
     Args:
         instance_ids (str|list): ids to query
         filters (dict):  EC2 filters, e.g. {"block-device-mapping.device-name":"/dev/xvda"}
-        **kw_filters: filters in create_filters form, e.g. instance_type="t2.micro"
+        **kw_filters: filters in _create_ec2_filters form, e.g. instance_type="t2.micro"
     Returns:
         list: boto3.resources.factory.ec2.Instance objects
 
-    Example:
-    
-        # Get IDs for instances with name matching the "myInstance*" pattern
-        >>> describe_instances(path="[*].Instances[*].InstanceId", tag_Name="myInstance*")
+    Examples:
+        # Get instances with name matching the "myInstance*" pattern
+        >>> get_instances(tag_Name="myInstance*")
+
+        # Get instances with name equal to "ServerName"
+        >>> get_instances(tag_Name="Server Name")
+
+        # Get instances with image_id starting with "ami"
+        >>> get_instances(image_id="ami*")
     """
     instances = [
-        ec2_res.Instance(v)
+        RESOURCE_ec2.Instance(v)
         for v in describe_instances(
             instance_ids, "[*].Instances[*].InstanceId", filters, **kw_filters
         )
@@ -249,35 +298,57 @@ def get_instances(instance_ids=None, filters=None, **kw_filters):
 
 def describe_key_pairs(key_pair_ids=None, path="$.[*]", filters=None, **kw_filters):
     """
-    Simpler access to describe_key_pairs().
+    Simpler access to describe_key_pairs().  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-key-pairs help
+
+    and look at the --filters option.
     
     Args:
         key_pair_ids (str|list): ids to query
         path (str): JSONpath query
         filters (dict):  EC2 filters, e.g. {"key-name":"admin-key-pair-us-west-1"}
-        **kw_filters: filters in create_filters form, e.g. key_name="admin-key-pair-us-west-1"
+        **kw_filters: filters in _create_ec2_filters form, e.g. key_name="admin-key-pair-us-west-1"
     Returns:
         object: JSON-like
+
+    Examples:
+        >>> describe_key_pairs(key_pair_id='key-0123456789abcdef0')
+
+        >>> describe_key_pairs(filters={"key-pair-id":"key-0123456789abcdef0"})
+        
+        >>> describe_key_pairs(path="[*].KeyName")
     """
     kwargs = _describe_kwargs("KeyPairIds", key_pair_ids, filters, kw_filters)
 
-    v = ec2.describe_key_pairs(**kwargs)
+    v = CLIENT_ec2.describe_key_pairs(**kwargs)
     return get(v["KeyPairs"], path)
 
 
 def get_key_pairs(key_pair_ids=None, filters=None, **kw_filters):
     """
-    Get list of key pairs.
+    Get list of key pairs.  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-key-pairs help
+
+    and look at the --filters option.
     
     Args:
         key_pair_ids (str|list): ids to query
         filters (dict):  EC2 filters, e.g. {"key-name":"admin-key-pair-us-west-1"}
-        **kw_filters: filters in create_filters form, e.g. key_name="admin-key-pair-us-west-1"
+        **kw_filters: filters in _create_ec2_filters form, e.g. key_name="admin-key-pair-us-west-1"
     Returns:
         list: boto3.resources.factory.ec2.KeyPair objects
+
+    Examples:
+        >>> get_key_pairs(key_pair_id='key-0123456789abcdef0')
+
+        >>> get_key_pairs(filters={"key-pair-id":"key-0123456789abcdef0"})
+        
+        >>> get_key_pairs(path="[*].KeyName")
     """
     key_pairs = [
-        ec2_res.KeyPair(v)
+        RESOURCE_ec2.KeyPair(v)
         for v in describe_key_pairs(
             key_pair_ids, "[*].KeyPairId", filters, **kw_filters
         )
@@ -289,36 +360,60 @@ def describe_security_groups(
     security_group_ids=None, path="$.[*]", filters=None, **kw_filters
 ):
     """
-    Simpler access to describe_security_groups().
+    Simpler access to describe_security_groups().  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-security-groups help
+
+    and look at the --filters option.
     
     Args:
         security_group_ids (str|list): ids to query
         path (str): JSONpath query
         filters (dict):  EC2 filters, e.g. {"ip-permission.from-port":"80"}
-        **kw_filters: filters in create_filters form, e.g. group_name="admin_SG_us_west1"
+        **kw_filters: filters in _create_ec2_filters form, e.g. group_name="admin_SG_us_west1"
     Returns:
         object: JSON-like
+
+    Examples:
+        >>> describe_security_groups(group_id="sg-0123456fb1f21afb3")
+
+        >>> describe_security_groups(filters={"group-id":"sg-0123456fb1f21afb3"})
+
+        >>> describe_security_groups(filters={"ip-permission.from-port":"25565"})
+
+        >>> describe_security_groups(path="[*].Description")
     """
     kwargs = _describe_kwargs(
         "SecurityGroupIds", security_group_ids, filters, kw_filters
     )
-    v = ec2.describe_security_groups(**kwargs)
+    v = CLIENT_ec2.describe_security_groups(**kwargs)
     return get(v["SecurityGroups"], path)
 
 
 def get_security_groups(security_group_ids=None, filters=None, **kw_filters):
     """
-    Get list of security groups.
+    Get list of security groups.  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-security-groups help
+
+    and look at the --filters option.
     
     Args:
         security_group_ids (str|list): ids to query
         filters (dict):  EC2 filters, e.g. {"ip-permission.from-port":"80"}
-        **kw_filters: filters in create_filters form, e.g. group_name="admin_SG_us_west1"
+        **kw_filters: filters in _create_ec2_filters form, e.g. group_name="admin_SG_us_west1"
     Returns:
         list: boto3.resources.factory.ec2.SecurityGroup objects
+
+    Examples:
+        >>> get_security_groups(group_id="sg-0123456fb1f21afb3")
+
+        >>> get_security_groups(filters={"group-id":"sg-0123456fb1f21afb3"})
+
+        >>> get_security_groups(filters={"ip-permission.from-port":"25565"})
     """
     security_groups = [
-        ec2_res.SecurityGroup(v)
+        RESOURCE_ec2.SecurityGroup(v)
         for v in describe_security_groups(
             security_group_ids, "[*].GroupId", filters, **kw_filters
         )
@@ -330,22 +425,33 @@ def describe_instance_types(
     instance_types=None, path="$.[*]", filters=None, **kw_filters
 ):
     """
-    Simpler access to describe_instance_types().
+    Simpler access to describe_instance_types().  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-instance-types help
+
+    and look at the --filters option.
     
     Args:
         instance_type_ids (str|list): ids to query
         path (str): JSONpath query
         filters (dict):  EC2 filters, e.g. {"ip-permission.from-port":"80"}
-        **kw_filters: filters in create_filters form, e.g. group_name="admin_SG_us_west1"
+        **kw_filters: filters in _create_ec2_filters form, e.g. group_name="admin_SG_us_west1"
     Returns:
         object: JSON-like
     """
     kwargs = _describe_kwargs("InstanceTypes", instance_types, filters, kw_filters)
-    v = ec2.describe_instance_types(**kwargs)
+    v = CLIENT_ec2.describe_instance_types(**kwargs)
     return get(v["InstanceTypes"], path)
 
 
-# There is no get_instance_types because there is no InstanceType class.
+# ****** There is no get_instance_types because there is no InstanceType class. ******
+def get_instance_types():
+    """
+    get_instance_types is undefined because there is no InstanceType class.
+    """
+    raise Exception(
+        "get_instance_types is undefined because there is no InstanceType class."
+    )
 
 
 def describe_images(
@@ -357,7 +463,11 @@ def describe_images(
     **kw_filters,
 ):
     """
-    Simpler access to describe_images().
+    Simpler access to describe_images().  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-images help
+
+    and look at the --filters option.
     
     Args:
         executable_users (str|list): AWS account ID, "self", or "all" (public AMIs)
@@ -365,7 +475,7 @@ def describe_images(
         owners (str|list): AWS account ID, "self", "amazon", "aws-marketplace", or "microsoft"
         path (str): JSONpath query
         filters (dict):  EC2 filters, e.g. {"is-public":"true"}
-        **kw_filters: filters in create_filters form, e.g. architecture="x86_64"
+        **kw_filters: filters in _create_ec2_filters form, e.g. architecture="x86_64"
     Returns:
         object: JSON-like
     """
@@ -376,7 +486,7 @@ def describe_images(
     if owners is not None:
         kwargs.update({"Owners": _to_list(owners)})
 
-    v = ec2.describe_images(**kwargs)
+    v = CLIENT_ec2.describe_images(**kwargs)
     return get(v["Images"], path)
 
 
@@ -384,24 +494,28 @@ def get_images(
     executable_users=None, image_ids=None, owners=None, filters=None, **kw_filters
 ):
     """
-    Get list of images.
+    Get list of images.  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-images help
+
+    and look at the --filters option.
     
     Args:
         executable_users (str|list): AWS account ID, "self", or "all" (public AMIs)
         image_ids (str|list): ids to query
         owners (str|list): AWS account ID, "self", "amazon", "aws-marketplace", or "microsoft"
         filters (dict):  EC2 filters, e.g. {"is-public":"true"}
-        **kw_filters: filters in create_filters form, e.g. architecture="x86_64"
+        **kw_filters: filters in _create_ec2_filters form, e.g. architecture="x86_64"
     Returns:
         list: boto3.resources.factory.ec2.Image objects
 
-    Example:
+    Examples:
 
         >>> get_images(executableusers="self", owners="amazon")
 
     """
     images = [
-        ec2_res.Image(v)
+        RESOURCE_ec2.Image(v)
         for v in describe_images(
             executable_users, image_ids, owners, "[*].ImageId", filters, **kw_filters
         )
