@@ -18,17 +18,18 @@ def _translate_filters(**kw_filters):
     3. creates a suitable JSON-like dict for boto3 filters.
 
     Args:
-        **kw_filters: filter key-value pairs
+        **kw_filters: filter key-value pairs.  The keys are Pythonic (underscored) versions
+            of EC2 filter keys, and the values should be strings or lists of strings.
     Returns:
         dict: filters with translated keys
     
     Examples:
     
         >>> _translate_filters(resource_type="instance")
-        [{'Name': 'resource-type', 'Values': ['instance']}]
+        {'resource-type': 'instance'}
         
         >>> _translate_filters(tag_Name="instance")
-        [{'Name': 'tag:Name', 'Values': ['instance']}]
+        {'tag:Name': 'instance'}
     
     EC2 commands each have their own valid filter names!  Check on the command line, e.g.
     
@@ -40,6 +41,11 @@ def _translate_filters(**kw_filters):
     """
     out = {}
     for key, value in kw_filters.items():
+        if value is None:
+            raise Exception(
+                f"Value for key '{key}' is None, but should be a string or list of strings"
+            )
+
         if key.startswith("tag_") and key != "tag_key":
             key = key.replace("_", ":")
         else:
@@ -51,11 +57,31 @@ def _translate_filters(**kw_filters):
 def _create_ec2_filters(filters):
     """
     Quick filter creation for describe-images, describe-instances, etc.
+
+    A valid EC2 Filters object is a JSON-like list of individual filters
+    such as
+        [{'Name': 'tag:Name', 'Values': ['instance']}]
+    where each filter is a dict with 'Name' and 'Values' keys, and the
+    'Values' must be a list of strings.
     
     Args:
-        filters: key-value 
+        filters (dict): EC2 filter keys and associated values
     Returns:
         list: JSON-like EC2 Filters object
+
+    Examples:
+        >>> _create_ec2_filters({'resource-type': 'instance'})
+        [{'Name': 'resource-type', 'Values': ['instance']}]
+
+        >>> _create_ec2_filters({'tag:Name': 'instance'})
+        [{'Name': 'tag:Name', 'Values': ['instance']}]
+
+        >>> _create_ec2_filters({'tag:Name': ['instance']})
+        [{'Name': 'tag:Name', 'Values': ['instance']}]
+
+        >>> _create_ec2_filters({'is-public': True})
+        [{'Name': 'is-public', 'Values': ['true']}]
+
     """
     ec2_filters = []
     for key, value in filters.items():
@@ -72,8 +98,7 @@ def _create_ec2_filters(filters):
         if key.startswith("is-") and value in ["True", "False"]:
             value = value.lower()
 
-        if not isinstance(value, list):
-            value = [value]
+        value = _to_list(value)
 
         ec2_filters.append({"Name": key, "Values": value})
 
@@ -82,7 +107,23 @@ def _create_ec2_filters(filters):
 
 def _to_list(scalar_or_list):
     """
-    Adapter to map None -> None, scalar -> [scalar], list -> list.
+    Puts scalar arguments into a single-element list, but None
+    remains None.  Lists are passed through.
+
+    Args:
+        scalar_or_list: None, or a scalar object, or a list
+    Returns:
+        list|None: scalar args as single element lists; None and list
+            will be passed through unchanged.
+
+    Examples:
+        >>> _to_list(1)
+        [1]
+
+        >>> _to_list(["a", "b"])
+        ['a', 'b']
+
+        >>> _to_list(None)  # returns None
     """
     if scalar_or_list is None:
         return None
@@ -176,7 +217,6 @@ def describe_instances(instance_ids=None, path="$.[*]", filters=None, **kw_filte
     Returns:
         object: JSON-like
     """
-
     kwargs = _describe_kwargs("InstanceIds", instance_ids, filters, kw_filters)
     v = ec2.describe_instances(**kwargs)
     return get(v["Reservations"], path)
@@ -314,7 +354,7 @@ def describe_images(
     owners=None,
     path="$.[*]",
     filters=None,
-    **kw_filters
+    **kw_filters,
 ):
     """
     Simpler access to describe_images().
