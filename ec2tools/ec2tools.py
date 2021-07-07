@@ -22,6 +22,7 @@ def get(obj, expr):
     return [match.value for match in jsonpath_expr.find(obj)]
 
 
+# This is the full list from the AWS documentation on Feb 1, 2020.
 INSTANCE_ATTRIBUTES = [
     "ami_launch_index",
     "architecture",
@@ -90,6 +91,7 @@ def get_instance_attributes(instance):
     return instance_attributes
 
 
+# UNUSED
 def create_tag_spec(resource_type="instance", **kwargs):
     """
     Make a tag spec for EC2 stuff.
@@ -132,6 +134,7 @@ def get_instances(name=None, instance_id=None):
     
     Args:
         name (str, optional): regexp pattern for instance name
+        instance_id (str, optional): 
     Returns:
         list: matching instances
     """
