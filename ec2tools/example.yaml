@@ -29,10 +29,3 @@ instance_templates:
 
 ...
 
-
-    image_id,
-    instance_type,
-    key_name,
-    security_group=None,
-    instance_name=None,
-    dry_run=False,
