@@ -1,5 +1,6 @@
 """
 User-friendly wrappers to boto3.client("ec2").describe_* functions:
+    boto3.client("ec2").describe_tags
     boto3.client("ec2").describe_volumes
     boto3.client("ec2").describe_instances
     boto3.client("ec2").describe_key_pairs
@@ -452,12 +453,19 @@ def describe_instance_types(
     and look at the --filters option.
     
     Args:
-        instance_type_ids (str|list): ids to query
+        instance_types (str|list): ids to query
         path (str): JSONpath query
         filters (dict):  EC2 filters, e.g. {"ip-permission.from-port":"80"}
         **kw_filters: filters in _create_ec2_filters form, e.g. group_name="admin_SG_us_west1"
     Returns:
         object: JSON-like
+
+    Examples:
+        >>> describe_instance_types("m5.large")
+
+        >>> describe_instance_types(free_tier_eligible=True)
+
+        >>> describe_instance_types(filters={"vcpu-info.default-vcpus":"1"})
     """
     kwargs = _describe_kwargs("InstanceTypes", instance_types, filters, kw_filters)
     v = CLIENT_ec2.describe_instance_types(**kwargs)

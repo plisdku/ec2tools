@@ -130,36 +130,6 @@ def get_instance_ids(name=None):
     return instance_ids
 
 
-# Obsolete
-def get_instances(name=None, instance_id=None):
-    """
-    Get a list of instances, optionally matching a pattern.
-    
-    Args:
-        name (str, optional): regexp pattern for instance name
-        instance_id (str, optional): 
-    Returns:
-        list: matching instances
-    """
-    ec2_resource = boto3.resource("ec2")
-
-    instances = []
-
-    if name is not None:
-        instance_ids = get_instance_ids(name=name)
-        instances = [ec2_resource.Instance(instance_id) for instance_id in instance_ids]
-    elif instance_id is not None:
-        instance_ids = get_instance_ids()
-        if instance_id not in instance_ids:
-            raise Exception(f"Instance id {instance_id} is not a valid instance.")
-        instances = [ec2_resource.Instance(instance_id)]
-    else:
-        instance_ids = get_instance_ids()
-        instances = [ec2_resource.Instance(instance_id) for instance_id in instance_ids]
-
-    return instances
-
-
 # Can I get this from the YAML?  Maybe should hardcode.
 USERNAME_DICT = {".*Amazon Linux.*": "ec2-user"}
 
@@ -184,7 +154,8 @@ def get_image_username(image):
     return None
 
 
-# sorta redundant with describe_instances(path="$..Tags").
+# Ok.
+# not really redundant with describe_instances(path="$..Tags").
 def get_instance_tags(instance, key):
     """
     Get values for all instance tags with the given key.
@@ -204,7 +175,8 @@ def get_instance_tags(instance, key):
     return tags
 
 
-# sorta redundant with describe_instances(path="$..Tags[?(@.Key == 'Name')].Value")
+# Ok.
+# not really redundant with describe_instances(path="$..Tags[?(@.Key == 'Name')].Value")
 # and also with ec2tools.get(instance.tags, "$[?(@.Key=='Name')].Value") if the
 # instance has been gotten
 def get_instance_name(instance):
@@ -335,25 +307,6 @@ def get_quota(quota_name=None, quota_code=None, quota_field=None):
     return result
 
 
-# Rewrite a little for wrapper.py.
-def get_instance_types(field=None):
-    """
-    Get list of available EC2 instance types.
-    
-    Args:
-        field (str): field to return e.g. "InstanceType"
-    Returns:
-        dict
-    """
-    ec2 = boto3.client("ec2")
-    result = ec2.describe_instance_types()["InstanceTypes"]
-
-    if field is not None:
-        result = get(result, "[*].InstanceType")
-
-    return result
-
-
 # Rewrite a little for wrapper.py
 def get_instance_type_quota(instance_type, quota_field=None):
     """
@@ -379,40 +332,6 @@ def get_instance_type_quota(instance_type, quota_field=None):
         quota_name = "Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances"
 
     result = get_quota(quota_name, quota_field=quota_field)
-    return result
-
-
-# REDUNDANT, BALEET PLZ
-def get_key_pairs(field=None):
-    """
-    Get key pairs.
-    
-    Args:
-        field (str,optional): name of one field to read e.g. "KeyName"
-    Returns:
-        json object
-    """
-    ec2 = boto3.client("ec2")
-    result = ec2.describe_key_pairs()["KeyPairs"]
-    if field is not None:
-        result = get(result, f"[*].{field}")
-    return result
-
-
-# REDUNDANT, BALEET
-def get_security_groups(field=None):
-    """
-    Get security groups.
-    
-    Args:
-        field (str, optional): name of single field to return e.g. "GroupName", "GroupId"
-    Returns:
-        json object
-    """
-    ec2 = boto3.client("ec2")
-    result = ec2.describe_security_groups()["SecurityGroups"]
-    if field is not None:
-        result = get(result, f"[*].{field}")
     return result
 
 
