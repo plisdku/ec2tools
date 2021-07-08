@@ -183,6 +183,26 @@ def _describe_kwargs(id_field_name, ids=None, filters=None, kw_filters=None):
     return kwargs
 
 
+def describe_tags(path="$[*]", filters=None, **kw_filters):
+    """
+    Simpler access to describe_tags().  For a list of valid filter names, consult
+
+        >>> aws2 ec2 describe-tags help
+
+    and look at the --filters option.
+    
+    Args:
+        path (str): JSONpath query
+        filters (dict): EC2 filters, e.g. {"attachment.delete-on-termination":True}
+        kw_filters (dict): valid filters in _create_ec2_filters form, e.g. size="8"
+    Returns:
+        object: JSON-like
+    """
+    kwargs = _describe_kwargs("ID_FIELD_NAME_UNUSED", None, filters, kw_filters)
+    v = CLIENT_ec2.describe_tags(**kwargs)
+    return get(v["Tags"], path)
+
+
 def describe_volumes(volume_ids=None, path="$[*]", filters=None, **kw_filters):
     """
     Simpler access to describe_volumes().  For a list of valid filter names, consult
